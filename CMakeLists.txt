@@ -16,4 +16,7 @@ target_link_libraries(pico2_firmware
     pico_stdlib
 )
 
+pico_enable_stdio_usb(pico2_firmware 1)
+pico_enable_stdio_uart(pico2_firmware 0)
+
 pico_add_extra_outputs(pico2_firmware)

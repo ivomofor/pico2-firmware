@@ -1,13 +1,12 @@
 #include <stdio.h>
-#include <stdbool.h>
-
+#include "pico/stdlib.h"
 int main(void)
 {
-    printf("Hello from Raspberry Pi Pico 2 W!\n");
-
+    stdio_init_all();
     while (true)
     {
-        // Firmware runs continuously.
+        printf("Hello from Raspberry Pi Pico 2 W!\n");
+        sleep_ms(1000);
     }
 
     return 0;
