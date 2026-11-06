@@ -9,11 +9,12 @@ project(pico2_firmware C CXX ASM)
 pico_sdk_init()
 
 add_executable(pico2_firmware
-    main.c
+        main.c
 )
 
 target_link_libraries(pico2_firmware
-    pico_stdlib
+        pico_stdlib
+        pico_cyw43_arch_none
 )
 
 pico_enable_stdio_usb(pico2_firmware 1)
