@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdbool.h>
+
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 
@@ -18,8 +20,13 @@ int main(void)
     gpio_set_dir(15, GPIO_OUT);
     gpio_put(15, 0);
 
+    gpio_init(14);
+    gpio_set_dir(14, GPIO_IN);
+    gpio_pull_up(14);
+
     while (true)
     {
+        /*
         gpio_put(15, 1);
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         printf("LED ON\n");
@@ -29,6 +36,10 @@ int main(void)
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
         printf("LED OFF\n");
         sleep_ms(1000);
+        */
+        bool button_state = gpio_get(14);
+        printf("Button state: %d\n", button_state);
+        sleep_ms(200);
     }
 
     cyw43_arch_deinit();
