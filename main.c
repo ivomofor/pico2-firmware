@@ -24,22 +24,29 @@ int main(void)
     gpio_set_dir(14, GPIO_IN);
     gpio_pull_up(14);
 
+    uint64_t previous_time = time_us_64();
+
     while (true)
     {
-        bool button_state = gpio_get(14);
+        uint64_t current_time = time_us_64();
 
-        if (button_state == false)
+        if (current_time - previous_time >= 200000)
         {
-            gpio_put(15, 1);
-            printf("Button pressed - LED ON\n");
-        }
-        else
-        {
-            gpio_put(15, 0);
-            printf("Button released - LED OFF\n");
-        }
+            bool button_state = gpio_get(14);
 
-        sleep_ms(200);
+            if (button_state == false)
+            {
+                gpio_put(15, 1);
+                printf("Button pressed - LED ON\n");
+            }
+            else
+            {
+                gpio_put(15, 0);
+                printf("Button released - LED OFF\n");
+            }
+
+            previous_time = current_time;
+        }
     }
 
     cyw43_arch_deinit();
