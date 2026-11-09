@@ -53,6 +53,8 @@ int main(void)
     gpio_pull_up(14);
 
     uint64_t previous_time = time_us_64();
+    uint64_t timer_start_time = time_us_64();
+    bool timer_cancelled = false;
 
     while (true)
     {
@@ -71,6 +73,16 @@ int main(void)
         }
 
         uint64_t current_time = time_us_64();
+
+        if (!timer_cancelled && current_time - timer_start_time >= 10000000)
+        {
+            if (cancel_repeating_timer(&repeating_timer))
+            {
+                printf("Repeating timer cancelled!\n");
+            }
+
+            timer_cancelled = true;
+        }
 
         if (current_time - previous_time >= 200000)
         {
