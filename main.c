@@ -3,6 +3,19 @@
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/time.h"
+
+volatile bool alarm_fired = false;
+
+int64_t alarm_callback(alarm_id_t id, void *user_data)
+{
+    (void)id;
+    (void)user_data;
+
+    alarm_fired = true;
+
+    return 0;
+}
 
 int main(void)
 {
@@ -15,6 +28,7 @@ int main(void)
     }
 
     printf("Pico 2 W LED control started!\n");
+    add_alarm_in_ms(2000, alarm_callback, NULL, false);
 
     gpio_init(15);
     gpio_set_dir(15, GPIO_OUT);
@@ -28,6 +42,13 @@ int main(void)
 
     while (true)
     {
+        if (alarm_fired)
+        {
+            alarm_fired = false;
+
+            printf("Hardware timer alarm fired!\n");
+        }
+
         uint64_t current_time = time_us_64();
 
         if (current_time - previous_time >= 200000)
