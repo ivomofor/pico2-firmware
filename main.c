@@ -6,6 +6,7 @@
 #include "pico/time.h"
 
 volatile bool alarm_fired = false;
+volatile bool repeating_timer_fired = false;
 
 int64_t alarm_callback(alarm_id_t id, void *user_data)
 {
@@ -15,6 +16,15 @@ int64_t alarm_callback(alarm_id_t id, void *user_data)
     alarm_fired = true;
 
     return 0;
+}
+
+bool repeating_timer_callback(repeating_timer_t *rt)
+{
+    (void)rt;
+
+    repeating_timer_fired = true;
+
+    return true;
 }
 
 int main(void)
@@ -28,7 +38,11 @@ int main(void)
     }
 
     printf("Pico 2 W LED control started!\n");
+
     add_alarm_in_ms(2000, alarm_callback, NULL, false);
+
+    repeating_timer_t repeating_timer;
+    add_repeating_timer_ms(2000, repeating_timer_callback, NULL, &repeating_timer);
 
     gpio_init(15);
     gpio_set_dir(15, GPIO_OUT);
@@ -47,6 +61,13 @@ int main(void)
             alarm_fired = false;
 
             printf("Hardware timer alarm fired!\n");
+        }
+        
+        if (repeating_timer_fired)
+        {
+            repeating_timer_fired = false;
+
+            printf("Repeating timer fired!\n");
         }
 
         uint64_t current_time = time_us_64();
