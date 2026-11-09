@@ -26,19 +26,19 @@ int main(void)
 
     while (true)
     {
-        /*
-        gpio_put(15, 1);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-        printf("LED ON\n");
-        sleep_ms(1000);
-
-        gpio_put(15, 0);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-        printf("LED OFF\n");
-        sleep_ms(1000);
-        */
         bool button_state = gpio_get(14);
-        printf("Button state: %d\n", button_state);
+
+        if (button_state == false)
+        {
+            gpio_put(15, 1);
+            printf("Button pressed - LED ON\n");
+        }
+        else
+        {
+            gpio_put(15, 0);
+            printf("Button released - LED OFF\n");
+        }
+
         sleep_ms(200);
     }
 
