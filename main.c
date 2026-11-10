@@ -33,7 +33,16 @@ bool heartbeat_timer_callback(repeating_timer_t *rt)
 {
     (void)rt;
 
+    static uint32_t heartbeat_count = 0;
+
+    heartbeat_count++;
+
     heartbeat_timer_fired = true;
+
+    if (heartbeat_count >= 5)
+    {
+        return false;
+    }
 
     return true;
 }
