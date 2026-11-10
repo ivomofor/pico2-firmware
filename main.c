@@ -7,6 +7,8 @@
 
 volatile bool alarm_fired = false;
 volatile bool repeating_timer_fired = false;
+volatile bool heartbeat_timer_fired = false;
+volatile bool status_timer_fired = false;
 
 int64_t alarm_callback(alarm_id_t id, void *user_data)
 {
@@ -27,6 +29,24 @@ bool repeating_timer_callback(repeating_timer_t *rt)
     return true;
 }
 
+bool heartbeat_timer_callback(repeating_timer_t *rt)
+{
+    (void)rt;
+
+    heartbeat_timer_fired = true;
+
+    return true;
+}
+
+bool status_timer_callback(repeating_timer_t *rt)
+{
+    (void)rt;
+
+    status_timer_fired = true;
+
+    return true;
+}
+
 int main(void)
 {
     stdio_init_all();
@@ -42,7 +62,26 @@ int main(void)
     add_alarm_in_ms(2000, alarm_callback, NULL, false);
 
     repeating_timer_t repeating_timer;
-    add_repeating_timer_ms(2000, repeating_timer_callback, NULL, &repeating_timer);
+    repeating_timer_t heartbeat_timer;
+    repeating_timer_t status_timer;
+
+    if (!add_repeating_timer_ms(2000, repeating_timer_callback, NULL, &repeating_timer))
+    {
+        printf("Failed to start repeating timer!\n");
+        return 1;
+    }
+
+    if (!add_repeating_timer_ms(1000, heartbeat_timer_callback, NULL, &heartbeat_timer))
+    {
+        printf("Failed to start heartbeat timer!\n");
+        return 1;
+    }
+
+    if (!add_repeating_timer_ms(3000, status_timer_callback, NULL, &status_timer))
+    {
+        printf("Failed to start status timer!\n");
+        return 1;
+    }
 
     gpio_init(15);
     gpio_set_dir(15, GPIO_OUT);
@@ -70,6 +109,20 @@ int main(void)
             repeating_timer_fired = false;
 
             printf("Repeating timer fired!\n");
+        }
+
+        if (heartbeat_timer_fired)
+        {
+            heartbeat_timer_fired = false;
+
+            printf("Heartbeat timer fired!\n");
+        }
+
+        if (status_timer_fired)
+        {
+            status_timer_fired = false;
+
+            printf("Status timer fired!\n");
         }
 
         uint64_t current_time = time_us_64();
