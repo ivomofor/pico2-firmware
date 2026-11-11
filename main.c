@@ -9,6 +9,24 @@ volatile bool alarm_fired = false;
 volatile bool repeating_timer_fired = false;
 volatile bool heartbeat_timer_fired = false;
 volatile bool status_timer_fired = false;
+volatile bool button_irq_fired = false;
+volatile bool button_released_irq_fired = false;
+
+void button_interrupt_handler(uint gpio, uint32_t events)
+{
+    if (gpio == 14)
+    {
+        if (events & GPIO_IRQ_EDGE_FALL)
+        {
+            button_irq_fired = true;
+        }
+
+        if (events & GPIO_IRQ_EDGE_RISE)
+        {
+            button_released_irq_fired = true;
+        }
+    }
+}
 
 int64_t alarm_callback(alarm_id_t id, void *user_data)
 {
@@ -100,7 +118,8 @@ int main(void)
     gpio_set_dir(14, GPIO_IN);
     gpio_pull_up(14);
 
-    uint64_t previous_time = time_us_64();
+    gpio_set_irq_enabled_with_callback(14, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_interrupt_handler);
+
     uint64_t timer_start_time = time_us_64();
     bool timer_cancelled = false;
 
@@ -146,22 +165,22 @@ int main(void)
             timer_cancelled = true;
         }
 
-        if (current_time - previous_time >= 200000)
+        if (button_irq_fired)
         {
-            bool button_state = gpio_get(14);
+            button_irq_fired = false;
 
-            if (button_state == false)
-            {
-                gpio_put(15, 1);
-                printf("Button pressed - LED ON\n");
-            }
-            else
-            {
-                gpio_put(15, 0);
-                printf("Button released - LED OFF\n");
-            }
+            gpio_put(15, 1);
 
-            previous_time = current_time;
+            printf("Button pressed - LED ON\n");
+        }
+
+        if (button_released_irq_fired)
+        {
+            button_released_irq_fired = false;
+
+            gpio_put(15, 0);
+
+            printf("Button released - LED OFF\n");
         }
     }
 
