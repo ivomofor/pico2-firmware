@@ -5,6 +5,8 @@
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
 
+#include "hardware/uart.h"
+
 volatile bool alarm_fired = false;
 volatile bool repeating_timer_fired = false;
 volatile bool heartbeat_timer_fired = false;
@@ -77,12 +79,27 @@ bool status_timer_callback(repeating_timer_t *rt)
 int main(void)
 {
     stdio_init_all();
+    sleep_ms(2000);
+
+    uart_init(uart0, 9600);
+
+    gpio_set_function(0, GPIO_FUNC_UART);
+    gpio_set_function(1, GPIO_FUNC_UART);
+
+    uart_set_format(uart0, 8, 1, UART_PARITY_NONE);
+
+    uart_puts(uart0, "Hello UART!\n");
+
+    printf("UART transmission attempted.\n");
+    stdio_flush();
 
     if (cyw43_arch_init())
     {
         printf("CYW43 initialization failed!\n");
         return 1;
     }
+    printf("USB CDC is working!\n");
+    stdio_flush();
 
     printf("Pico 2 W LED control started!\n");
 
@@ -125,6 +142,13 @@ int main(void)
 
     while (true)
     {
+        if (uart_is_readable(uart0))
+        {
+            char received_char = uart_getc(uart0);
+
+            printf("%c", received_char);
+        }
+
         if (alarm_fired)
         {
             alarm_fired = false;

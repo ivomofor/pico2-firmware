@@ -15,6 +15,7 @@ add_executable(pico2_firmware
 target_link_libraries(pico2_firmware
         pico_stdlib
         pico_cyw43_arch_none
+        hardware_uart
 )
 
 pico_enable_stdio_usb(pico2_firmware 1)
