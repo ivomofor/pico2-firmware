@@ -6,6 +6,7 @@
 #include "pico/time.h"
 
 #include "hardware/uart.h"
+#include "hardware/i2c.h"
 
 volatile bool alarm_fired = false;
 volatile bool repeating_timer_fired = false;
@@ -76,15 +77,51 @@ bool status_timer_callback(repeating_timer_t *rt)
     return true;
 }
 
+void scan_i2c_bus(void)
+{
+    printf("\nScanning I2C bus...\n");
+
+    uint8_t probe_byte = 0x00;
+    bool device_found = false;
+
+    for (uint8_t address = 0x08; address <= 0x77; address++)
+    {
+        int result = i2c_write_timeout_us(
+            i2c0,
+            address,
+            &probe_byte,
+            1,
+            false,
+            1000
+        );
+
+        if (result == 0)
+        {
+            printf("I2C device found at address: 0x%02X\n", address);
+            device_found = true;
+        }
+    }
+
+    if (!device_found)
+    {
+        printf("No I2C devices found.\n");
+    }
+
+    printf("I2C scan complete.\n\n");
+}
+
 int main(void)
 {
     stdio_init_all();
     sleep_ms(2000);
 
     uart_init(uart0, 9600);
+    i2c_init(i2c0, 100000);
 
     gpio_set_function(0, GPIO_FUNC_UART);
     gpio_set_function(1, GPIO_FUNC_UART);
+    gpio_set_function(4, GPIO_FUNC_I2C);
+    gpio_set_function(5, GPIO_FUNC_I2C);
 
     uart_set_format(uart0, 8, 1, UART_PARITY_NONE);
 
@@ -102,6 +139,8 @@ int main(void)
     stdio_flush();
 
     printf("Pico 2 W LED control started!\n");
+
+    scan_i2c_bus();
 
     add_alarm_in_ms(2000, alarm_callback, NULL, false);
 
@@ -133,7 +172,9 @@ int main(void)
 
     gpio_init(14);
     gpio_set_dir(14, GPIO_IN);
+
     gpio_pull_up(14);
+    gpio_pull_up(5);
 
     gpio_set_irq_enabled_with_callback(14, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_interrupt_handler);
 
