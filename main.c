@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
+#include "pico/stdio_usb.h"
 
 #include "hardware/uart.h"
 #include "hardware/i2c.h"
@@ -95,7 +96,7 @@ void scan_i2c_bus(void)
             1000
         );
 
-        if (result == 0)
+        if (result == 1)
         {
             printf("I2C device found at address: 0x%02X\n", address);
             device_found = true;
@@ -110,18 +111,119 @@ void scan_i2c_bus(void)
     printf("I2C scan complete.\n\n");
 }
 
+static const uint8_t simulated_sensor_registers[] =
+{
+    0x42,  // Register 0x00: Device ID
+    0x01,  // Register 0x01: Configuration
+    0xFF,  // Register 0x02: Temperature MSB
+    0xFB,  // Register 0x03: Temperature LSB
+    0x00,  // Register 0x04: Status
+    0x12,  // Register 0x05: Measurement byte 1
+    0x34,  // Register 0x06: Measurement byte 2
+    0x56   // Register 0x07: Measurement byte 3
+};
+
+uint8_t simulated_sensor_read_register(uint8_t register_address)
+{
+    if (register_address >= sizeof(simulated_sensor_registers))
+    {
+        printf("Invalid register address: 0x%02X\n", register_address);
+        return 0;
+    }
+
+    return simulated_sensor_registers[register_address];
+}
+
+uint32_t simulated_sensor_read_24bit_measurement(void)
+{
+    uint8_t byte1 = simulated_sensor_read_register(0x05);
+    uint8_t byte2 = simulated_sensor_read_register(0x06);
+    uint8_t byte3 = simulated_sensor_read_register(0x07);
+
+    uint32_t measurement =
+        ((uint32_t)byte1 << 16) |
+        ((uint32_t)byte2 << 8)  |
+        byte3;
+
+    return measurement;
+}
+
+bool simulated_sensor_data_ready(void)
+{
+    uint8_t status = simulated_sensor_read_register(0x04);
+
+    return (status & 0x01) != 0;
+}
+
+bool simulated_sensor_read_measurement(uint32_t *measurement)
+{
+    uint32_t wait_time_ms = 0;
+
+    while (!simulated_sensor_data_ready() && wait_time_ms < 5000)
+    {
+        printf("Sensor data is not ready. Waiting...\n");
+
+        sleep_ms(1000);
+
+        wait_time_ms += 1000;
+    }
+
+    if (!simulated_sensor_data_ready())
+    {
+        printf("Sensor timeout! No measurement received.\n");
+        return false;
+    }
+
+    *measurement = simulated_sensor_read_24bit_measurement();
+
+    return true;
+}
+
+uint16_t simulated_sensor_read_temperature(void)
+{
+    uint8_t msb = simulated_sensor_read_register(0x02);
+    uint8_t lsb = simulated_sensor_read_register(0x03);
+
+    uint16_t raw_temperature = ((uint16_t)msb << 8) | lsb;
+
+    return raw_temperature;
+}
+
+int16_t simulated_sensor_read_signed_temperature(void)
+{
+    uint8_t msb = simulated_sensor_read_register(0x02);
+    uint8_t lsb = simulated_sensor_read_register(0x03);
+
+    uint16_t raw_value = ((uint16_t)msb << 8) | lsb;
+
+    return (int16_t)raw_value;
+}
+
+float simulated_sensor_convert_temperature(int16_t raw_value)
+{
+    return (float)raw_value / 10.0f;
+}
+
 int main(void)
 {
     stdio_init_all();
-    sleep_ms(2000);
+
+    while (!stdio_usb_connected())
+    {
+        sleep_ms(10);
+    }
 
     uart_init(uart0, 9600);
     i2c_init(i2c0, 100000);
 
     gpio_set_function(0, GPIO_FUNC_UART);
     gpio_set_function(1, GPIO_FUNC_UART);
+
     gpio_set_function(4, GPIO_FUNC_I2C);
     gpio_set_function(5, GPIO_FUNC_I2C);
+
+    gpio_pull_up(4);
+    gpio_pull_up(5);
 
     uart_set_format(uart0, 8, 1, UART_PARITY_NONE);
 
@@ -135,10 +237,53 @@ int main(void)
         printf("CYW43 initialization failed!\n");
         return 1;
     }
+
     printf("USB CDC is working!\n");
     stdio_flush();
 
     printf("Pico 2 W LED control started!\n");
+
+    uint8_t device_id = simulated_sensor_read_register(0x00);
+
+    printf("Simulated sensor device ID: 0x%02X\n", device_id);
+
+    uint16_t raw_temperature = simulated_sensor_read_temperature();
+
+    if (simulated_sensor_data_ready())
+    {
+        printf("New measurement available!\n");
+    }
+    else
+    {
+        printf("No new measurement available.\n");
+    }
+
+    printf("Simulated raw temperature: %u\n",
+           (unsigned int)raw_temperature);
+
+    printf("Simulated raw temperature (hex): 0x%04X\n",
+           (unsigned int)raw_temperature);
+
+    int16_t signed_temperature = simulated_sensor_read_signed_temperature();
+
+    printf("Simulated signed temperature: %d C\n",
+           (int)signed_temperature);
+
+    float temperature_celsius = simulated_sensor_convert_temperature(signed_temperature);
+
+    printf("Simulated temperature: %.1f C\n", (double)temperature_celsius);
+
+    uint32_t wait_time_ms = 0;
+
+    uint32_t measurement;
+
+    if (simulated_sensor_read_measurement(&measurement))
+    {
+        printf("New measurement available!\n");
+
+        printf("Simulated 24-bit measurement: 0x%06X\n",
+               (unsigned int)measurement);
+    }
 
     scan_i2c_bus();
 
@@ -172,11 +317,14 @@ int main(void)
 
     gpio_init(14);
     gpio_set_dir(14, GPIO_IN);
-
     gpio_pull_up(14);
-    gpio_pull_up(5);
 
-    gpio_set_irq_enabled_with_callback(14, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &button_interrupt_handler);
+    gpio_set_irq_enabled_with_callback(
+        14,
+        GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,
+        true,
+        &button_interrupt_handler
+    );
 
     uint64_t timer_start_time = time_us_64();
     bool timer_cancelled = false;
@@ -196,7 +344,7 @@ int main(void)
 
             printf("Hardware timer alarm fired!\n");
         }
-        
+
         if (repeating_timer_fired)
         {
             repeating_timer_fired = false;
